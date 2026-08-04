@@ -1,0 +1,47 @@
+rules_version = '2';
+
+// -----------------------------------------------------------------------
+// Regras de segurança do Firestore
+// -----------------------------------------------------------------------
+// Só usuários autenticados (equipe organizadora logada no app) podem ler
+// e escrever dados. Não há cadastro público de dados sensíveis: a criação
+// de conta já exige o código de acesso da equipe (verificado no app).
+//
+// Como aplicar: Firebase Console > Firestore Database > Regras > cole este
+// conteúdo > Publicar. (Também é possível publicar via Firebase CLI com
+// `firebase deploy --only firestore:rules`.)
+// -----------------------------------------------------------------------
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    match /tasks/{taskId} {
+      allow read, write: if signedIn();
+    }
+    match /timeline/{itemId} {
+      allow read, write: if signedIn();
+    }
+    match /contacts/{contactId} {
+      allow read, write: if signedIn();
+    }
+    match /activity/{logId} {
+      allow read: if signedIn();
+      allow create: if signedIn();
+      allow update, delete: if false; // histórico de atividades é só de leitura/criação
+    }
+    match /incidents/{incidentId} {
+      allow read, write: if signedIn();
+    }
+    match /meta/{docId} {
+      allow read, write: if signedIn();
+    }
+
+    // Qualquer outra coleção fica bloqueada por padrão.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
