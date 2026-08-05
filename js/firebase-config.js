@@ -14,12 +14,12 @@
  */
 
 const firebaseConfig = {
-  apiKey: "COLE_AQUI_SUA_API_KEY",
-  authDomain: "SEU-PROJETO.firebaseapp.com",
-  projectId: "SEU-PROJETO",
-  storageBucket: "SEU-PROJETO.appspot.com",
-  messagingSenderId: "COLE_AQUI",
-  appId: "COLE_AQUI"
+  apiKey: "AIzaSyBSPSUuu3Bua0Zg4qXDy4zrakfAh5vlJPI",
+  authDomain: "corrida-mq.firebaseapp.com",
+  projectId: "corrida-mq",
+  storageBucket: "corrida-mq.firebasestorage.app",
+  messagingSenderId: "376932042688",
+  appId: "1:376932042688:web:0c64c747b607709601ea25"
 };
 
 // Código de acesso exigido para criar uma nova conta de equipe pelo app.
