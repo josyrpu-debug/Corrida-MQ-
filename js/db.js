@@ -126,6 +126,14 @@ export async function addTimelineItem({ horario, titulo }, ordem) {
   await addDoc(col.timeline, { horario, titulo, ordem, realizado: false, createdAt: serverTimestamp() });
 }
 
+export async function updateTimelineItem(itemId, { horario, titulo }, userName) {
+  await updateDoc(doc(db, "timeline", itemId), {
+    horario, titulo,
+    lastUpdatedBy: userName,
+    lastUpdatedAt: serverTimestamp()
+  });
+}
+
 export async function deleteTimelineItem(itemId) {
   await deleteDoc(doc(db, "timeline", itemId));
 }
