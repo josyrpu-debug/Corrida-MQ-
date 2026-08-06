@@ -4,7 +4,7 @@
  */
 import { $, $$, el, escapeHtml, openModal, closeModal, toast } from "../utils.js";
 import { EMERGENCY_PROTOCOLS } from "../data.js";
-import { openIncident, toggleIncidentStep, resolveIncident } from "../db.js";
+import { openIncident, toggleIncidentStep, resolveIncident, saveContact, deleteContact, logActivity } from "../db.js";
 
 let getState = () => ({ contacts: [], incidents: [], user: {} });
 let subTab = "contatos";
@@ -27,14 +27,20 @@ export function renderCommunication(state) {
       <div class="chip-filter ${subTab === "contatos" ? "active" : ""}" id="tab-contatos">☎️ Contatos importantes</div>
       <div class="chip-filter ${subTab === "emergencia" ? "active" : ""}" id="tab-emergencia">🚨 Situações de emergência</div>
     </div>
+    ${subTab === "contatos" ? `<div class="toolbar"><button class="btn btn-primary btn-sm" id="btn-new-contact">+ Novo contato</button></div>` : ""}
     <div id="comm-body"></div>
   `;
 
   $("#tab-contatos").onclick = () => { subTab = "contatos"; renderCommunication(getState()); };
   $("#tab-emergencia").onclick = () => { subTab = "emergencia"; renderCommunication(getState()); };
 
-  if (subTab === "contatos") paintContacts(state);
-  else paintEmergency(state);
+  if (subTab === "contatos") {
+    paintContacts(state);
+    const btn = $("#btn-new-contact");
+    if (btn) btn.onclick = () => openContactModal(null);
+  } else {
+    paintEmergency(state);
+  }
 }
 
 function paintContacts(state) {
@@ -53,8 +59,8 @@ function paintContacts(state) {
       .filter((c) => c.categoria === cat)
       .forEach((c) => {
         const row = el("div", { class: "contact-row card" }, [
-          el("div", { class: "contact-icon" }, contactIconFor(cat)),
-          el("div", { class: "contact-info" }, [
+          el("div", { class: "contact-icon", onclick: () => openContactModal(c), style: "cursor:pointer;" }, contactIconFor(cat)),
+          el("div", { class: "contact-info", onclick: () => openContactModal(c), style: "cursor:pointer;" }, [
             el("div", { class: "contact-name" }, c.nome),
             el("div", { class: "contact-cat" }, c.telefone || "Telefone não cadastrado")
           ])
@@ -64,10 +70,62 @@ function paintContacts(state) {
           call.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.12.81.3 1.6.54 2.37a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.71-1.11a2 2 0 012.11-.45c.77.24 1.56.42 2.37.54A2 2 0 0122 16.92z"/></svg>';
           row.appendChild(call);
         }
+        const editBtn = el("button", {
+          type: "button", title: "Editar contato",
+          style: "width:34px;height:34px;border-radius:50%;border:1px solid var(--border);background:var(--surface-2);color:var(--text-dim);cursor:pointer;font-size:13px;flex-shrink:0;margin-left:6px;",
+          onclick: () => openContactModal(c)
+        }, "✏️");
+        row.appendChild(editBtn);
         list.appendChild(row);
       });
     body.appendChild(list);
   });
+}
+
+function openContactModal(contact) {
+  const isEdit = !!contact;
+  $("#simple-modal-title").textContent = isEdit ? "Editar contato" : "Novo contato";
+  const form = $("#form-simple");
+  form.innerHTML = `
+    <div class="field">
+      <label>Nome</label>
+      <input type="text" id="ct-nome" value="${contact ? contact.nome.replace(/"/g, "&quot;") : ""}" placeholder="Ex: Coordenação Geral" required>
+    </div>
+    <div class="field">
+      <label>Categoria</label>
+      <input type="text" id="ct-categoria" value="${contact ? contact.categoria.replace(/"/g, "&quot;") : ""}" placeholder="Ex: Organização" required>
+    </div>
+    <div class="field">
+      <label>Telefone</label>
+      <input type="tel" id="ct-telefone" value="${contact ? (contact.telefone || "").replace(/"/g, "&quot;") : ""}" placeholder="Ex: (21) 99999-9999">
+    </div>
+    <div class="modal-actions">
+      ${isEdit ? `<button type="button" class="btn btn-ghost" id="ct-delete-btn">Excluir</button>` : ""}
+      <button type="submit" class="btn btn-primary btn-block">${isEdit ? "Salvar alterações" : "Adicionar contato"}</button>
+    </div>
+  `;
+  form.onsubmit = async (e) => {
+    e.preventDefault();
+    const nome = $("#ct-nome").value.trim();
+    const categoria = $("#ct-categoria").value.trim();
+    const telefone = $("#ct-telefone").value.trim();
+    if (!nome || !categoria) return;
+    await saveContact(contact?.id || null, { nome, categoria, telefone });
+    const state = getState();
+    await logActivity({ type: "contact", text: `<b>${escapeHtml(state.user?.name || "Alguém")}</b> ${isEdit ? "atualizou" : "adicionou"} o contato "${escapeHtml(nome)}"`, level: "info" });
+    toast(isEdit ? "Contato atualizado" : "Contato adicionado", "success");
+    closeModal("#modal-simple");
+  };
+  if (isEdit) {
+    $("#ct-delete-btn").onclick = async () => {
+      if (!confirm(`Excluir o contato "${contact.nome}"? Essa ação não pode ser desfeita.`)) return;
+      await deleteContact(contact.id);
+      toast("Contato excluído", "success");
+      closeModal("#modal-simple");
+    };
+  }
+  $("#simple-modal-close").onclick = () => closeModal("#modal-simple");
+  openModal("#modal-simple");
 }
 
 function paintEmergency(state) {
